@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service
+  namespace: brilliant-ns
+spec:
+  selector:
+    app: webapp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-deployment
+  namespace: brilliant-ns
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      containers:
+        - name: php-apache
+          image: kubernetes-lamp:v1
+          imagePullPolicy: Never
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          ports:
+            - containerPort: 80
+          env:
+            - name: MYSQL_USER
+              value: "brilliant_user"
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-user-password
+            - name: MYSQL_DATABASE
+              value: "brilliant_db"
+          volumeMounts:
+            - name: code-volume
+              mountPath: /var/www/html
+      volumes:
+        - name: code-volume
+          configMap:
+            name: app-code
